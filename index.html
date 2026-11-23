@@ -91,7 +91,7 @@ button.lk{border:0}
 <script>
 const CW=160,CH=76,G=10,HG=14,VG=54,PAD=40,ROOTGAP=80;
 const $=id=>document.getElementById(id);
-const API='PASTE_YOUR_WEB_APP_URL_HERE'; // <- paste your Apps Script web app URL here (it ends in /exec)
+const API='https://script.google.com/macros/s/AKfycbwVmkbbnSGnIiLtR0H6CDoO1Egm6hKtBGz20n2Lf9dmT5zFsFozxJE7i9d3imTB_9eZ/exec'; // <- paste your Apps Script web app URL here (it ends in /exec)
 const GAS=!/^PASTE/.test(API);
 const call=b=>fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data});
 const gs={run:{withSuccessHandler:ok=>({withFailureHandler:bad=>{const r=b=>call(b).then(ok,bad);return{applyChanges:(ch,c)=>r({action:'apply',changes:ch,code:c}),getData:c=>r({action:'data',code:c})}}})}};
@@ -258,7 +258,7 @@ $('ach').onclick=()=>{const pid=sel;$('sv').click();const u=S.u[unitOf(pid)],uid
  S.u[uid]={m:[id],c:[],x:false,f:u.m.length>2?(pid!==u.m[0]?pid:u.m[1]):''};u.c.push(uid);setX(unitOf(pid),false);save();render();openP(id,true)};
 function rmUnit(uid){const u=S.u[uid];u.c.forEach(rmUnit);u.m.forEach(p=>delete S.p[p]);delete S.u[uid]}
 const cntP=id=>{const u=S.u[id];return u.m.length+u.c.reduce((a,c)=>a+cntP(c),0)};
-let snap=null,utm=null;const API='https://script.google.com/macros/s/AKfycbwVmkbbnSGnIiLtR0H6CDoO1Egm6hKtBGz20n2Lf9dmT5zFsFozxJE7i9d3imTB_9eZ/exec'
+let snap=null,utm=null;
 function delDo(mode){const uid=unitOf(sel),u=S.u[uid];snap=JSON.stringify(S);$('ut').hidden=false;clearTimeout(utm);utm=setTimeout(()=>{$('ut').hidden=true;snap=null},15000);
  if(mode==='only'){S.p[sel]={n:'Unknown',g:S.p[sel].g||'o'}}
  else if(u.m.length>1){u.m=u.m.filter(p=>p!==sel);delete S.p[sel]}
