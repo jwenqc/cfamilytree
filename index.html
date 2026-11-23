@@ -91,7 +91,7 @@ button.lk{border:0}
 <script>
 const CW=160,CH=76,G=10,HG=14,VG=54,PAD=40,ROOTGAP=80;
 const $=id=>document.getElementById(id);
-const API='https://script.google.com/macros/s/AKfycbwVmkbbnSGnIiLtR0H6CDoO1Egm6hKtBGz20n2Lf9dmT5zFsFozxJE7i9d3imTB_9eZ/exec'; // <- paste your Apps Script web app URL here (it ends in /exec)
+const API='PASTE_YOUR_WEB_APP_URL_HERE'; // <- paste your Apps Script web app URL here (it ends in /exec)
 const GAS=!/^PASTE/.test(API);
 const call=b=>fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data});
 const gs={run:{withSuccessHandler:ok=>({withFailureHandler:bad=>{const r=b=>call(b).then(ok,bad);return{applyChanges:(ch,c)=>r({action:'apply',changes:ch,code:c}),getData:c=>r({action:'data',code:c})}}})}};
