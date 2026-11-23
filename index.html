@@ -65,6 +65,9 @@ button.lk{border:0}
 #lm{position:fixed;z-index:15;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:4px}
 #lm[hidden]{display:none}#lm a{display:block;padding:10px 14px;color:var(--ink);text-decoration:none;font-weight:600}
 #fo a{display:inline-block;margin:6px 14px 0 0;color:var(--acc);font-weight:600}
+#dm{margin:0 0 4px}.hn{font-size:12px;color:var(--mut);margin:8px 0 0}#dc[hidden]{display:none}
+#ut{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:12;padding:12px 18px;border-radius:24px;border:0;background:var(--ink);color:var(--bg);font-weight:600;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+#ut[hidden]{display:none}
 </style></head>
 <body>
 <header><h1>Family tree</h1><button class="ib" id="sbtn">Find</button><button class="ib" id="ed" hidden>Unlock</button></header>
@@ -80,13 +83,15 @@ button.lk{border:0}
 <div id="fpw" hidden><label for="fp">Child of</label><select id="fp"></select></div><label for="fl">Social media links (one per line)</label><textarea id="fl" placeholder="facebook.com/name&#10;x.com/name"></textarea><div id="fo"></div>
 <label for="ft">Notes</label><textarea id="ft" placeholder="Place, occupation, story…"></textarea>
 <div class="btns" id="bt"><button class="pri" id="sv">Save changes</button><button id="asp">Add spouse</button><button id="ach">Add child</button><button id="apr">Add parent</button><button id="mvl">← Older</button><button id="mvr">Younger →</button><button id="srt" style="flex-basis:100%">Sort children by birth year</button><button class="dng" id="del">Delete person</button></div>
+<div id="dc" hidden><p id="dm"></p><div class="btns"><button id="d1" style="flex-basis:100%">Keep descendants, delete only this person</button><button class="dng" id="d2" style="flex-basis:100%">Delete all</button><button id="d3" style="flex-basis:100%">Cancel</button></div><p class="hn">“Keep descendants” turns this card into an “Unknown” placeholder, so the family below stays connected.</p></div>
 </div>
+<button id="ut" hidden>Undo delete</button>
 <div id="lm" hidden></div>
 <div id="lg" hidden><div><h2>Unlock editing</h2><p>Enter the edit code you were given.</p><input id="cd" type="password" autocomplete="off"><p id="le"></p><div class="btns"><button class="pri" id="lgo">Unlock</button><button id="lgx">Cancel</button></div></div></div>
 <script>
 const CW=160,CH=76,G=10,HG=14,VG=54,PAD=40,ROOTGAP=80;
 const $=id=>document.getElementById(id);
-const API='https://script.google.com/macros/s/AKfycbwVmkbbnSGnIiLtR0H6CDoO1Egm6hKtBGz20n2Lf9dmT5zFsFozxJE7i9d3imTB_9eZ/exec'; // <- paste your Apps Script web app URL here (it ends in /exec)
+const API='PASTE_YOUR_WEB_APP_URL_HERE'; // <- paste your Apps Script web app URL here (it ends in /exec)
 const GAS=!/^PASTE/.test(API);
 const call=b=>fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(r=>r.json()).then(j=>{if(!j.ok)throw new Error(j.error);return j.data});
 const gs={run:{withSuccessHandler:ok=>({withFailureHandler:bad=>{const r=b=>call(b).then(ok,bad);return{applyChanges:(ch,c)=>r({action:'apply',changes:ch,code:c}),getData:c=>r({action:'data',code:c})}}})}};
@@ -111,6 +116,7 @@ function load(d){const u={},p={},us=d.units.slice().sort((a,b)=>a.order-b.order)
  let root=null;
  us.forEach(r=>{if(!u[r.id])return;if(r.parent&&u[r.parent])u[r.parent].c.push(r.id);else if(!root&&!r.side)root=r.id});
  S={k:0,root,p,u};base=flat();
+ {const gs=Object.keys(S.u).filter(k=>S.u[k].ref);if(gs.length){gs.forEach(k=>{const par=parentOf(k);if(par)S.u[par].c=S.u[par].c.filter(c=>c!==k);delete S.u[k]});if(canEdit)save()}}
  if(root)return null;
  const id=nid('p'),n=nid('u');S.p[id]={n:'',g:'o'};S.u[n]={m:[id],c:[],x:false};S.root=n;if(canEdit)save();return canEdit?id:null}
 function diff(){const a=flat(),m=r=>Object.fromEntries(r.map(x=>[x.id,JSON.stringify(x)])),bp=m(base.people),bu=m(base.units),ap=m(a.people),au=m(a.units);
@@ -127,7 +133,7 @@ function ui(){canEdit=!locked||!!me;$('ed').hidden=!locked;$('ed').textContent=m
 function pull(first){gs.run.withSuccessHandler(d=>{locked=!!d.locked;me=d.me||'';ui();const nb=load(d);render();if(first)fit();stat('Synced with Google Sheet');
   if(!$('lg').hidden){if(me)$('lg').hidden=true;else $('le').textContent='That code was not recognised.'}
   if(nb)openP(nb,true)}).withFailureHandler(e=>stat('Could not load: '+((e&&e.message)||e))).getData(code)}
-let sel=null,tx=0,ty=0,sc=1,W=0,H=0,MW=0,MH=0,armed=false;
+let sel=null,tx=0,ty=0,sc=1,W=0,H=0,MW=0,MH=0,SB={},LC={},armed=false;
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const PL=[[/facebook\.com|fb\.com|fb\.me/,'f','Facebook'],[/instagram\.com/,'ig','Instagram'],[/(^|\.)x\.com$|twitter\.com/,'X','X'],[/tiktok\.com/,'tt','TikTok'],[/linkedin\.com/,'in','LinkedIn'],[/youtube\.com|youtu\.be/,'yt','YouTube']];
 function plat(u){let h='';try{h=new URL(u).hostname}catch(e){}const m=PL.find(x=>x[0].test(h));return m?[m[1],m[2]]:['↗','link']}
@@ -140,24 +146,36 @@ const own=u=>u.ref?CW:u.m.length*CW+(u.m.length-1)*G;
 const disp=u=>{if(u.ref)return[u.ref];if(u.m.length<3)return u.m;const d=[u.m[0]];u.m.slice(1).forEach((p,i)=>i%2?d.unshift(p):d.push(p));return d};
 const anc=(u,c)=>{const f=S.u[c].f;return u.m.includes(f)?f:u.m[1]};
 const sib=u=>{if(u.m.length<3)return u.c;const d=disp(u);return u.c.map((c,i)=>[c,d.indexOf(anc(u,c)),i]).sort((a,b)=>a[1]-b[1]||a[2]-b[2]).map(a=>a[0])};
-const kids=u=>u.x?[]:sib(u);
+const kids=u=>u.x||u.side?[]:sib(u);
 function wd(u){const o=own(u),k=kids(u);if(!k.length)return o;let s=-HG;k.forEach(c=>s+=wd(S.u[c])+HG);return Math.max(o,s)}
-function place(id,x0,y,o){const u=S.u[id],w=wd(u),l=x0+(w-own(u))/2;o[id]={l,y,cx:x0+w/2};let b=y+CH;
-const k=kids(u);if(k.length){let cw=-HG;k.forEach(c=>cw+=wd(S.u[c])+HG);let x=x0+(w-cw)/2;k.forEach(c=>{b=Math.max(b,place(c,x,y+CH+VG,o));x+=wd(S.u[c])+HG})}return b}
+function lay(id){if(LC[id])return LC[id];const u=S.u[id],ks=kids(u),kl=ks.map(lay),o=own(u),offs=[];let gw=0;
+ kl.forEach((l,i)=>{offs.push(gw);gw+=l.w+(i<kl.length-1?HG:0)});
+ const d=disp(u),ss=(SB[id]||[]).map(q=>({q,x:d.indexOf(S.u[q].side)*(CW+G)+CW/2,w:own(S.u[q])})).filter(s=>s.x>0).sort((a,b)=>a.x-b.x);
+ for(let i=1;i<ss.length;i++){const m=ss[i-1].x+ss[i-1].w/2+HG+ss[i].w/2;if(ss[i].x<m)ss[i].x=m}
+ const ob=[];kl.forEach((l,i)=>l.sint.forEach(([a,b])=>ob.push([offs[i]+a,offs[i]+b])));
+ const ideal=gw/2-o/2,hit=x=>ob.some(([a,b])=>x<b+HG&&x+o>a-HG);let xl=ideal;
+ if(ob.length&&hit(xl)){const Lx=Math.min(...ob.map(r=>r[0]))-HG-o,Rx=Math.max(...ob.map(r=>r[1]))+HG;xl=Math.abs(Lx-ideal)<=Math.abs(Rx-ideal)?Lx:Rx}
+ const sl=ss.map(s=>({q:s.q,l:xl+s.x-s.w/2,w:s.w,cx:xl+s.x})),mn=Math.min(0,xl,...sl.map(s=>s.l)),mx=Math.max(gw,xl+o,...sl.map(s=>s.l+s.w));
+ return LC[id]={w:mx-mn,cl:xl-mn,gs:-mn,offs,ks,stubs:sl.map(s=>({q:s.q,l:s.l-mn,cx:s.cx-mn,w:s.w})),sint:sl.map(s=>[s.l-mn,s.l-mn+s.w])}}
+function place(id,x0,y,o){const u=S.u[id],L=lay(id),d=disp(u),l=x0+L.cl,cx=l+own(u)/2;
+ o[id]={l,y,cx,ax:L.stubs.length?l+d.indexOf(u.m[0])*(CW+G)+CW/2:cx,st:L.stubs.map(s=>({q:s.q,cx:x0+s.cx}))};let b=y+CH;
+ L.stubs.forEach(s=>{o[s.q]={l:x0+s.l,y:y-CH-VG,cx:x0+s.cx,ax:x0+s.cx}});
+ L.ks.forEach((c,i)=>{b=Math.max(b,place(c,x0+L.gs+L.offs[i],y+CH+VG,o))});return b}
 function render(){
-const o={},rs=[S.root,...Object.keys(S.u).filter(k=>k!==S.root&&!parentOf(k))];let x0=PAD;
-rs.forEach((id,i)=>{const w=wd(S.u[id]),b=place(id,x0,PAD+(i?24:0),o);if(!i){MW=w+PAD*2;MH=b+PAD}x0+=w+ROOTGAP});
+SB={};LC={};Object.keys(S.u).forEach(k=>{const q=S.u[k];if(q.side){const h=unitOf(q.side);if(h)(SB[h]=SB[h]||[]).push(k)}});
+const o={},rs=[S.root,...Object.keys(S.u).filter(k=>k!==S.root&&!parentOf(k)&&!S.u[k].side)];let x0=PAD;
+rs.forEach((id,i)=>{const L=lay(id),b=place(id,x0,PAD+(L.stubs.length?CH+VG:0),o);if(!i){MW=L.w+PAD*2;MH=b+PAD}x0+=L.w+ROOTGAP});
 LO=o;W=x0-ROOTGAP+PAD;H=Math.max(...Object.values(o).map(r=>r.y))+CH+PAD+20;
 let svg='',h='';
 for(const id in o){const u=S.u[id],r=o[id];
- if(u.side&&!parentOf(id))h+=`<div class="sl" style="left:${r.l}px;top:${r.y-22}px">${esc((S.p[u.side]||{}).n)||'Spouse'}’s family</div>`;
+ (r.st||[]).forEach(s=>{const sx=r.l+disp(u).indexOf(S.u[s.q].side)*(CW+G)+CW/2,y1=r.y-VG;svg+=`<path d="M${s.cx} ${y1}V${y1+VG/2}H${sx}V${r.y}" fill="none" stroke="var(--line)" stroke-width="2" stroke-dasharray="5 4"/>`});
  if(u.m.length>1)svg+=`<line x1="${r.l+CW/2}" x2="${r.l+own(u)-CW/2}" y1="${r.y+CH/2}" y2="${r.y+CH/2}" stroke="var(--acc)" stroke-width="4" stroke-linecap="round"/>`;
  const d=disp(u),ks=kids(u),ax=c=>u.m.length<3?r.cx:r.l+d.indexOf(anc(u,c))*(CW+G)+CW/2,xs=[...new Set(ks.map(ax))].sort((a,b)=>a-b);
- ks.forEach(c=>{const q=o[c],py=r.y+CH,a=ax(c),my=py+VG/2+(xs.indexOf(a)-(xs.length-1)/2)*7;svg+=`<path d="M${a} ${py}V${my}H${q.cx}V${q.y}" fill="none" stroke="var(--line)" stroke-width="2"/>`});
- d.forEach((pid,i)=>{const p=S.p[pid],x=r.l+i*(CW+G),gh=!!u.ref,L=lk(p.l),gu=!gh&&Object.keys(S.u).find(k=>S.u[k].ref===pid),
+ ks.forEach(c=>{const q=o[c],py=r.y+CH,a=ax(c),my=py+VG/2+(xs.indexOf(a)-(xs.length-1)/2)*7;svg+=`<path d="M${a} ${py}V${my}H${q.ax}V${q.y}" fill="none" stroke="var(--line)" stroke-width="2"/>`});
+ d.forEach((pid,i)=>{const p=S.p[pid],x=r.l+i*(CW+G),gh=!!u.ref,L=lk(p.l),gu='',
    sub=gh?'↪ '+((S.p[(S.u[unitOf(pid)]||{m:[]}).m[0]]||{}).n||''):[[p.b,p.d].filter(Boolean).join(' – '),bd(p.bd)].filter(Boolean).join(' · ');
   h+=`<div class="card ${p.g||'o'}${gh?' gh':''}${pid===sel?' sel':''}${pid===flash?' hit':''}" ${gh?`data-gh="${id}"`:`data-p="${pid}"`} style="left:${x}px;top:${r.y}px"><div class="av">${p.ph?`<img src="${p.ph}" alt="">`:esc((p.n||'?').trim().charAt(0).toUpperCase()||'?')}</div><div class="tx"><b>${esc(p.n)||'Unnamed'}</b><i>${esc(sub)||'&nbsp;'}</i></div>${!gh&&L.length?(L.length>1?`<button class="lk" data-lm="${pid}">↗${L.length}</button>`:`<a class="lk" href="${esc(L[0])}" target="_blank" rel="noopener noreferrer" aria-label="Open ${lbl(L[0])}">${plat(L[0])[0]}</a>`):''}${gu?`<button class="up" data-up="${gu}" aria-label="Show parents">⤴</button>`:''}</div>`});
- if(u.c.length)h+=`<button class="tg" data-u="${id}" style="left:${r.cx-13}px;top:${r.y+CH-4}px" aria-label="${u.x?'Expand':'Collapse'} branch">${u.x?u.c.length:'−'}</button>`;
+ if(u.c.length&&!u.side)h+=`<button class="tg" data-u="${id}" style="left:${r.cx-13}px;top:${r.y+CH-4}px" aria-label="${u.x?'Expand':'Collapse'} branch">${u.x?u.c.length:'−'}</button>`;
 }
 const cv=$('cv');cv.style.width=W+'px';cv.style.height=H+'px';
 cv.innerHTML=`<svg width="${W}" height="${H}">${svg}</svg>`+h;apply();}
@@ -190,10 +208,10 @@ function openP(pid,isNew){sel=pid;const p=S.p[pid];$('fn').value=p.n||'';$('fb')
  $('st').textContent=isNew?'New person':'Edit person';const cu=unitOf(pid),pu=parentOf(cu),n=S.u[cu].m.length;$('asp').disabled=n>=6;$('asp').textContent=n>1?'Add another spouse':'Add spouse';
  const show=!!pu&&S.u[pu].m.length>2&&S.u[cu].m[0]===pid;$('fpw').hidden=!show;
  if(show){$('fp').innerHTML=S.u[pu].m.slice(1).map(x=>`<option value="${x}">${esc(S.p[x].n)||'Unnamed'}</option>`).join('');$('fp').value=anc(S.u[pu],cu)}
- const head=S.u[cu].m[0]===pid&&!pu,hasG=Object.keys(S.u).some(k=>S.u[k].ref===pid);$('apr').hidden=!(head||(S.u[cu].m[0]!==pid&&!hasG));$('apr').textContent=head?'Add parent':'Add their parents';
+ const stb=!!S.u[cu].side,head=S.u[cu].m[0]===pid&&!pu,hasG=Object.keys(S.u).some(k=>S.u[k].side===pid);$('apr').hidden=stb||!(head||(S.u[cu].m[0]!==pid&&!hasG));$('ach').hidden=stb;$('apr').textContent=head?'Add parent':'Add their parents';
  const su=sibU(pid),sp=su&&parentOf(su),isK=!!sp,sb=isK?sib(S.u[sp]):[],ix=sb.indexOf(su),nbr=d=>{const j=ix+d;return j>=0&&j<sb.length&&(S.u[sp].m.length<3||anc(S.u[sp],sb[j])===anc(S.u[sp],su))};
  $('mvl').hidden=$('mvr').hidden=!isK;if(isK){$('mvl').disabled=!nbr(-1);$('mvr').disabled=!nbr(1)}$('srt').hidden=S.u[cu].c.length<2;setPh(p.ph||'');$('fl').value=lk(p.l).join('\n');$('fo').innerHTML=lk(p.l).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(lbl(u))} ↗</a>`).join('');$('bm').value=(p.bd||'').slice(0,2);$('bdd').value=p.bd?+p.bd.slice(3):'';$('bt').hidden=$('pbt').hidden=!canEdit;['fn','fb','fd','fg','ft','fp','fl','bm','bdd'].forEach(i=>$(i).disabled=!canEdit);if(!canEdit)$('st').textContent='Person';
- armed=false;$('del').textContent='Delete person';$('sheet').classList.add('on');render();
+ armed=false;$('del').textContent='Delete person';$('dc').hidden=true;$('sheet').classList.add('on');render();
  const r=$('cv').querySelector('.card.sel');if(r){const v=vp.getBoundingClientRect(),c=r.getBoundingClientRect(),room=v.height*.4;
   if(c.bottom>v.bottom-room){ty-=c.bottom-(v.bottom-room)+20;apply()}}
  if(isNew)setTimeout(()=>$('fn').focus(),220)}
@@ -206,15 +224,15 @@ $('fi').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image()
  im.src=url;e.target.value=''};
 $('apr').onclick=()=>{const pid=sel;$('sv').click();const cu=unitOf(pid),U=S.u[cu],id=newP('o'),n=nid('u');
  if(U.m[0]===pid&&!parentOf(cu)){S.u[n]={m:[id],c:[cu],x:false,f:'',side:U.side||''};U.side='';if(S.root===cu)S.root=n}
- else{const gu=nid('u');S.u[gu]={m:[],c:[],x:false,ref:pid};S.u[n]={m:[id],c:[gu],x:false,f:'',side:pid}}
+ else{S.u[n]={m:[id],c:[],x:false,f:'',side:pid}}
  save();render();openP(id,true)};
 const sibU=pid=>{const c=unitOf(pid);return S.u[c].m[0]===pid?c:Object.keys(S.u).find(k=>S.u[k].ref===pid)};
-function prune(){for(const id in S.u){const g=S.u[id];if(g.ref&&!S.p[g.ref]){const par=parentOf(id);if(par)S.u[par].c=S.u[par].c.filter(c=>c!==id);delete S.u[id]}}}
+function prune(){Object.keys(S.u).forEach(id=>{const g=S.u[id];if(!g)return;if(g.ref&&!S.p[g.ref]){const par=parentOf(id);if(par)S.u[par].c=S.u[par].c.filter(c=>c!==id);delete S.u[id]}else if(g.side&&!S.p[g.side])rmUnit(id)})}
 function goU(uc){let a=parentOf(uc);while(a){if(S.u[a].x)setX(a,false);a=parentOf(a)}flash=S.u[uc].ref;render();const r=LO[uc];if(sc<.8)sc=.8;
  tx=vp.clientWidth/2-(r.l+CW/2)*sc;ty=vp.clientHeight/2-(r.y+CH/2)*sc;apply();setTimeout(()=>{flash=null;render()},3000)}
 function menu(pid,el){const m=$('lm'),r=el.getBoundingClientRect();m.innerHTML=lk(S.p[pid].l).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(lbl(u))} ↗</a>`).join('');m.hidden=false;
  m.style.left=Math.max(4,Math.min(r.left,innerWidth-190))+'px';m.style.top=Math.max(4,Math.min(r.bottom+4,innerHeight-m.offsetHeight-8))+'px'}
-function goTo(pid){let uc=unitOf(pid),a=parentOf(uc);while(a){if(S.u[a].x)setX(a,false);a=parentOf(a)}
+function goTo(pid){let uc=unitOf(pid),a=parentOf(S.u[uc].side?unitOf(S.u[uc].side):uc);while(a){if(S.u[a].x)setX(a,false);a=parentOf(a)}
  flash=pid;render();const r=LO[uc],i=disp(S.u[uc]).indexOf(pid);if(sc<.8)sc=.8;
  tx=vp.clientWidth/2-(r.l+i*(CW+G)+CW/2)*sc;ty=vp.clientHeight/2-(r.y+CH/2)*sc;apply();setTimeout(()=>{flash=null;render()},3000)}
 $('sbtn').onclick=()=>{const b=$('sb');b.hidden=!b.hidden;if(!b.hidden){$('q').value='';$('sr').innerHTML='';$('q').focus()}};
@@ -239,12 +257,20 @@ $('asp').onclick=()=>{const pid=sel,p=S.p[pid];$('sv').click();const u=S.u[unitO
 $('ach').onclick=()=>{const pid=sel;$('sv').click();const u=S.u[unitOf(pid)],uid=nid('u'),id=newP('o');
  S.u[uid]={m:[id],c:[],x:false,f:u.m.length>2?(pid!==u.m[0]?pid:u.m[1]):''};u.c.push(uid);setX(unitOf(pid),false);save();render();openP(id,true)};
 function rmUnit(uid){const u=S.u[uid];u.c.forEach(rmUnit);u.m.forEach(p=>delete S.p[p]);delete S.u[uid]}
-$('del').onclick=function(){const uid=unitOf(sel),u=S.u[uid];
- if(!armed){armed=true;this.textContent=u.m.length>1||!u.c.length?'Tap again to delete':'Tap again: removes branch too';return}
- if(u.m.length>1){u.m=u.m.filter(p=>p!==sel);delete S.p[sel]}
+const cntP=id=>{const u=S.u[id];return u.m.length+u.c.reduce((a,c)=>a+cntP(c),0)};
+let snap=null,utm=null;const API='https://script.google.com/macros/s/AKfycbwVmkbbnSGnIiLtR0H6CDoO1Egm6hKtBGz20n2Lf9dmT5zFsFozxJE7i9d3imTB_9eZ/exec'
+function delDo(mode){const uid=unitOf(sel),u=S.u[uid];snap=JSON.stringify(S);$('ut').hidden=false;clearTimeout(utm);utm=setTimeout(()=>{$('ut').hidden=true;snap=null},15000);
+ if(mode==='only'){S.p[sel]={n:'Unknown',g:S.p[sel].g||'o'}}
+ else if(u.m.length>1){u.m=u.m.filter(p=>p!==sel);delete S.p[sel]}
  else if(uid===S.root){rmUnit(uid);const id=nid('p'),n=nid('u');S.p[id]={n:'',g:'o'};S.u[n]={m:[id],c:[],x:false};S.root=n}
  else{const par=parentOf(uid);if(par)S.u[par].c=S.u[par].c.filter(c=>c!==uid);rmUnit(uid)}
- prune();save();closeSheet()};
+ prune();save();closeSheet()}
+$('del').onclick=function(){const uid=unitOf(sel),u=S.u[uid],nd=u.m.length===1?u.c.reduce((a,c)=>a+cntP(c),0):0;
+ if(nd){$('dm').innerHTML=`<b>${esc(S.p[sel].n)||'This person'}</b> has ${nd} descendant${nd>1?'s':''} below. What should happen to them?`;$('d2').textContent=`Delete ${nd+1} people (them and all descendants)`;$('bt').hidden=true;$('dc').hidden=false;return}
+ if(!armed){armed=true;this.textContent='Tap again to delete';return}
+ delDo('all')};
+$('d1').onclick=()=>delDo('only');$('d2').onclick=()=>delDo('all');$('d3').onclick=()=>{$('dc').hidden=true;$('bt').hidden=!canEdit};
+$('ut').onclick=()=>{if(!snap)return;S=JSON.parse(snap);snap=null;$('ut').hidden=true;save();render()};
 addEventListener('resize',()=>{if(!sel&&S.root)fit()});
 if(GAS){$('hint').textContent='Loading…';pull(true);setInterval(()=>{if(!busy&&!dirty&&!sel&&!document.hidden)pull()},30000)}
 else{try{S=JSON.parse(localStorage.getItem('ft1'))}catch(e){}if(!S||!S.root)S=sample();render();fit()}
